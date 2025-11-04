@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Math Board</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Coming Soon (for handwriting) -->
+    <link href="https://fonts.googleapis.com/css2?family=Coming+Soon&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom styles for the board aesthetic */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Bright, inviting background */
+            background-color: #f0f9ff; /* Lightest Sky Blue */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .board-container {
+            width: 100%;
+            max-width: 900px;
+            /* Light container background */
+            background-color: #ffffff; 
+            /* Softer, more colorful shadow */
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2), 0 0 0 10px #fcd34d; /* Yellow outline */
+            border-radius: 1.5rem; /* More rounded corners */
+            overflow: hidden;
+        }
+        .control-panel {
+            /* Vibrant control panel header */
+            background-color: #2dd4bf; /* Teal 400 */
+            border-bottom: 4px solid #0f766e; /* Darker teal line */
+        }
+        
+        /* --- Custom Pen Cursor --- */
+        #drawingCanvas {
+            /* This inline SVG creates a white pen icon.
+              The '1 18' at the end sets the cursor hotspot to the very tip (1px right, 18px down).
+            */
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="black" stroke-width="1"><path d="M2.929 19.071c-1.808-1.808-.732-4.242.53-5.505l10-10c1.263-1.263 3.697-2.339 5.505-.53 1.808 1.808.732 4.242-.53 5.505l-10 10c-1.263 1.263-3.697 2.339-5.505.53zM10 14l-8 8m9-9l1.5-1.5M13 11l1.5-1.5M16 8l1.5-1.5"/></svg>') 1 18, crosshair;
+            
+            /* Fun, deep chalkboard teal */
+            background-color: #115e59; /* Teal 800 */
+            touch-action: none; 
+            border-bottom: 4px solid #2dd4bf; /* Teal border */
+        }
+        
+        /* Styling for the buttons to make them look bubbly/friendly */
+        .bubbly-button {
+            transition: all 0.15s ease-out; /* Smoother transition */
+            box-shadow: 0 4px 0 0;
+            transform: translateY(0);
+            display: flex; /* Allow spinner and text alignment */
+            align-items: center;
+            justify-content: center;
+            min-width: 150px; /* Ensure button doesn't shrink when spinner appears */
+        }
+        .bubbly-button:active {
+            box-shadow: 0 0px 0 0; /* No shadow when pressed */
+            transform: translateY(4px); /* Press down fully */
+        }
+        .bubbly-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: translateY(0);
+            box-shadow: 0 4px 0 0;
+        }
+
+        /* Custom font for the solved output */
+        .handwriting-font {
+            font-family: 'Coming Soon', cursive;
+        }
+        
+        /* Ensure inputs look clean */
+        #colorPicker {
+            border: 2px solid #fff;
+        }
+
+        /* Animation for status text */
+        .status-pop {
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            55% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Animation for answer reveal on canvas */
+        .answer-reveal {
+            animation: fadeInBounce 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeInBounce {
+            0% { opacity: 0; transform: translateY(20px); }
+            60% { opacity: 1; transform: translateY(-5px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Creative Loading Animation (Bouncing Dots) CSS --- */
+        .loading-dots {
+            display: flex;
+            align-items: center;
+            height: 1.5rem; 
+            width: 4rem; /* Give space for all three dots */
+            justify-content: center;
+        }
+        .dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            margin: 0 3px;
+            background-color: #0f766e; /* Dark Teal */
+            border-radius: 50%;
+            animation: bounce 1s infinite;
+        }
+        .dot:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+        .dot:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-8px); /* Bounce height */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="board-container">
+        <h1 class="text-3xl font-bold p-4 text-center text-white control-panel rounded-t-xl handwriting-font">
+            ✨ Super Math Board! Let's Draw! ✨
+        </h1>
+        
+        <!-- Control Panel for Tools -->
+        <div class="p-4 flex flex-wrap gap-4 justify-center items-center control-panel">
+            
+            <!-- Color Picker -->
+            <label for="colorPicker" class="text-white text-base font-bold">Magic Color:</label>
+            <input type="color" id="colorPicker" value="#f8fafc" class="p-1 h-10 w-10 block cursor-pointer rounded-full">
+
+            <!-- Brush Size -->
+            <label for="brushSize" class="text-white text-base font-bold">Pen Size:</label>
+            <input type="range" id="brushSize" min="3" max="25" value="10" class="w-24 h-2 bg-teal-700 rounded-lg appearance-none cursor-pointer">
+            
+            <!-- Clear Button -->
+            <button id="clearButton" class="bubbly-button bg-red-500 hover:bg-red-600 text-white font-extrabold py-2 px-4 rounded-full shadow-red-700">
+                Wipe Clean 🧹
+            </button>
+
+            <!-- Solve Button with Loading Spinner -->
+            <button id="solveButton" class="bubbly-button bg-yellow-400 hover:bg-yellow-500 text-teal-900 font-extrabold py-2 px-6 rounded-full shadow-yellow-600 ml-4">
+                <span id="solveText">Solve It! 🧠</span>
+                <div id="loadingSpinner" class="loading-dots" style="display: none;">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </button>
+        </div>
+
+        <!-- Drawing Canvas -->
+        <canvas id="drawingCanvas" class="w-full" height="450"></canvas>
+
+        <!-- Status Panel -->
+        <div id="statusPanel" class="p-4 control-panel text-white min-h-12 flex items-center justify-center rounded-b-xl">
+            <span id="statusText" class="text-base italic handwriting-font status-pop">Start drawing a number puzzle or a math question!</span>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase
+        let app, db, auth;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Canvas Elements and Context
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const brushSizeInput = document.getElementById('brushSize');
+        const clearButton = document.getElementById('clearButton');
+        const solveButton = document.getElementById('solveButton');
+        const statusText = document.getElementById('statusText');
+        
+        // New elements for loading animation
+        const solveText = document.getElementById('solveText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+
+        // Drawing State
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let strokeColor = colorPicker.value;
+        let strokeWidth = parseInt(brushSizeInput.value);
+        const CHALKBOARD_COLOR = '#115e59'; // Must match CSS background color for erasing illusion
+
+        // Eraser Constants
+        const ERASER_WIDTH = 80;
+        const ERASER_HEIGHT_FACTOR = 0.45; // Make eraser shorter for two passes
+        const ERASER_COLOR = '#e0e0e0'; // Distinct light gray for the eraser itself
+        const ERASER_OUTLINE_COLOR = '#000000'; // Black outline for better definition
+        
+        // --- Firebase Initialization and Auth (MANDATORY) ---
+
+        const initFirebase = async () => {
+            try {
+                // Set Firestore log level to Debug
+                setLogLevel('Debug');
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate using custom token or anonymously
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("Firebase signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Firebase signed in anonymously.");
+                }
+                
+            } catch (error) {
+                console.error("Firebase initialization or authentication failed:", error);
+            }
+        };
+
+        // --- Canvas Drawing Logic ---
+
+        const setCanvasSize = () => {
+            // Ensure the canvas matches the container width
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            // Canvas height is fixed for a good aspect ratio
+        };
+
+        // Initialize canvas on load and resize
+        window.addEventListener('load', () => {
+            setCanvasSize();
+            initCanvasContext();
+        });
+        window.addEventListener('resize', setCanvasSize);
+
+        const initCanvasContext = () => {
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = strokeWidth;
+            ctx.strokeStyle = strokeColor;
+        };
+
+        const draw = (e) => {
+            if (!isDrawing) return;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e._x, e._y);
+            ctx.stroke();
+            
+            // Update last position
+            [lastX, lastY] = [e._x, e._y];
+        };
+
+        const getCoords = (event) => {
+            const rect = canvas.getBoundingClientRect();
+            let x, y;
+
+            if (event.touches) {
+                // Handle touch event
+                x = event.touches[0].clientX - rect.left;
+                y = event.touches[0].clientY - rect.top;
+            } else {
+                // Handle mouse event
+                x = event.clientX - rect.left;
+                y = event.clientY - rect.top;
+            }
+            return { _x: x, _y: y };
+        };
+
+        const startDrawing = (event) => {
+            event.preventDefault(); // Prevent scrolling/default behavior on touch
+
+            const coords = getCoords(event);
+            isDrawing = true;
+            [lastX, lastY] = [coords._x, coords._y];
+            
+            // Apply current color and size
+            strokeColor = colorPicker.value;
+            strokeWidth = parseInt(brushSizeInput.value);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            
+            // Start a new path immediately
+            draw(coords);
+        };
+
+        const stopDrawing = () => {
+            isDrawing = false;
+        };
+
+        // Event Listeners for Mouse
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', (e) => draw(getCoords(e)));
+        window.addEventListener('mouseup', stopDrawing);
+
+        // Event Listeners for Touch
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', (e) => draw(getCoords(e)));
+        window.addEventListener('touchend', stopDrawing);
+
+        /**
+         * Animates a more realistic two-pass sweeping gesture to erase the canvas.
+         * @param {number} duration Total duration of the animation in milliseconds.
+         */
+        const eraseCanvasWithGesture = (duration = 1200) => { // Total duration for both sweeps
+            // Disable controls while erasing
+            clearButton.disabled = true;
+            solveButton.disabled = true;
+
+            updateStatusText('Wiping the board clean...');
+
+            const startTime = performance.now();
+            const eraseHeight = canvas.height * ERASER_HEIGHT_FACTOR;
+            const halfDuration = duration / 2;
+            const totalSweepDistance = canvas.width + ERASER_WIDTH;
+
+
+            const animateErase = (currentTime) => {
+                const elapsedTime = currentTime - startTime;
+                
+                // --- Phase 1: Top Sweep (Left-to-Right) ---
+                if (elapsedTime < halfDuration) {
+                    const progress = Math.min(1, elapsedTime / halfDuration);
+                    const eraserLeftX = (totalSweepDistance * progress) - ERASER_WIDTH;
+                    const eraseY = (canvas.height * 0.25) - (eraseHeight / 2); // Top half center
+
+                    // 1. Clear top half progressively
+                    ctx.fillStyle = CHALKBOARD_COLOR;
+                    ctx.fillRect(0, 0, eraserLeftX + ERASER_WIDTH, canvas.height / 2);
+                    
+                    // 2. Draw eraser
+                    ctx.fillStyle = ERASER_COLOR;
+                    ctx.fillRect(eraserLeftX, eraseY, ERASER_WIDTH, eraseHeight);
+                    ctx.strokeStyle = ERASER_OUTLINE_COLOR;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(eraserLeftX, eraseY, ERASER_WIDTH, eraseHeight);
+                    
+                    requestAnimationFrame(animateErase);
+
+                // --- Phase 2: Bottom Sweep (Right-to-Left) ---
+                } else if (elapsedTime < duration) {
+                    // Make sure top half stays clear
+                    ctx.fillStyle = CHALKBOARD_COLOR;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+
+                    const progress = Math.min(1, (elapsedTime - halfDuration) / halfDuration);
+                    const eraserLeftX = canvas.width - (totalSweepDistance * progress);
+                    const eraseY = (canvas.height * 0.75) - (eraseHeight / 2); // Bottom half center
+                    
+                    // 1. Clear bottom half progressively (from the right)
+                    ctx.fillRect(eraserLeftX, canvas.height / 2, canvas.width - eraserLeftX, canvas.height / 2);
+
+                    // 2. Draw eraser
+                    ctx.fillStyle = ERASER_COLOR;
+                    ctx.fillRect(eraserLeftX, eraseY, ERASER_WIDTH, eraseHeight);
+                    ctx.strokeStyle = ERASER_OUTLINE_COLOR;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(eraserLeftX, eraseY, ERASER_WIDTH, eraseHeight);
+
+                    requestAnimationFrame(animateErase);
+
+                // --- Animation Complete ---
+                } else {
+                    // Animation is complete. Ensure the entire canvas is truly cleared.
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = CHALKBOARD_COLOR;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height); // Redraw background
+
+                    // Reset context and controls
+                    ctx.beginPath(); 
+                    initCanvasContext();
+                    updateStatusText('Board wiped clean! Ready for a new puzzle!');
+                    clearButton.disabled = false;
+                    solveButton.disabled = false;
+                }
+            };
+            
+            requestAnimationFrame(animateErase);
+        };
+
+        // Control Listeners
+        clearButton.addEventListener('click', eraseCanvasWithGesture);
+
+        // --- LLM API Integration for Math Solving ---
+
+        /**
+         * Converts the canvas content to a Base64 encoded image string (data URI).
+         * @returns {string} Base64 image data.
+         */
+        const canvasToBase64 = () => {
+            // We use image/jpeg for better compression and smaller payload
+            return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+        };
+
+        /**
+         * Renders the final answer text onto the canvas using a handwriting style with animation.
+         * @param {string} text The final answer text (e.g., "5" or "x = 3, -3").
+         */
+        const displayAnswerOnCanvas = (text) => {
+            // We use the last used stroke settings for the output text style
+            const margin = 20;
+            const xPos = margin;
+            const yPos = canvas.height - margin;
+            const prefix = "Answer: ";
+
+            ctx.strokeStyle = strokeColor;
+            ctx.fillStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.font = `${Math.max(30, strokeWidth * 2.5)}px 'Coming Soon', cursive`;
+            ctx.textAlign = 'left';
+            
+            // Draw the answer text
+            setTimeout(() => {
+                ctx.fillText(prefix + text, xPos, yPos);
+            }, 100); 
+        };
+
+        /**
+         * Updates the status text with a pop animation.
+         * @param {string} message The new status message.
+         */
+        const updateStatusText = (message) => {
+            statusText.classList.remove('status-pop'); // Reset animation
+            void statusText.offsetWidth; // Trigger reflow
+            statusText.textContent = message;
+            statusText.classList.add('status-pop'); // Add animation
+        };
+
+        const MAX_RETRIES = 3;
+        const solveMath = async () => {
+            const base64ImageData = canvasToBase64();
+            
+            // --- START LOADING STATE ---
+            solveButton.disabled = true;
+            clearButton.disabled = true; // Disable clear while solving
+            solveText.style.display = 'none';
+            loadingSpinner.style.display = 'flex'; // Use flex to show the dots
+            updateStatusText('🧠 Thinking hard to solve your puzzle... 🧠');
+            // --- END LOADING STATE ---
+
+            const systemPrompt = "You are an expert mathematical image recognition and solving engine. Your only goal is to analyze the provided handwritten image of a math problem, solve it, and output the solution in a specific JSON format. Do not use markdown formatting in the solution or problem fields.";
+            
+            // Using structured output (JSON schema) for reliable data extraction
+            const payload = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: "Analyze the drawn mathematical problem in the image, provide the step-by-step solution, and provide the final answer." },
+                            {
+                                inlineData: {
+                                    mimeType: "image/jpeg",
+                                    data: base64ImageData
+                                }
+                            }
+                        ]
+                    }
+                ],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "recognizedProblem": { "type": "STRING", "description": "The math problem recognized from the drawing (e.g., '2 + 2' or 'x^2 - 4 = 0')." },
+                            "solutionSteps": { "type": "STRING", "description": "The full step-by-step solution to the problem." },
+                            "finalAnswer": { "type": "STRING", "description": "The final, concise numerical or symbolic answer (e.g., '4' or 'x = 2, x = -2')." }
+                        },
+                        "propertyOrdering": ["recognizedProblem", "solutionSteps", "finalAnswer"]
+                    }
+                }
+            };
+            
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            // Wrap the entire retry loop in a try...finally to ensure the button is re-enabled
+            try {
+                for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 429 && attempt < MAX_RETRIES - 1) {
+                                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue; // Retry
+                            }
+                            throw new Error(`API request failed with status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        
+                        const textPart = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (!textPart) throw new Error("API response text part missing.");
+
+                        const parsedJson = JSON.parse(textPart);
+                        const answer = parsedJson.finalAnswer;
+                        const problem = parsedJson.recognizedProblem;
+                        const steps = parsedJson.solutionSteps;
+
+                        if (answer) {
+                            displayAnswerOnCanvas(answer);
+                            updateStatusText(`🤩 Solved! Problem: "${problem}". Keep practicing!`);
+                        } else {
+                            updateStatusText('Hmm, I couldn\'t find a clear answer. Can you draw it again?');
+                        }
+                        return; // Success
+                    } catch (error) {
+                        console.error("Error solving math problem:", error);
+                        if (attempt === MAX_RETRIES - 1) {
+                            updateStatusText(`Oops! Something went wrong after ${MAX_RETRIES} tries. Maybe draw it a bit clearer?`);
+                        } else {
+                            console.log(`Retrying... Attempt ${attempt + 1}`);
+                        }
+                    }
+                }
+            } finally {
+                // --- END LOADING STATE ---
+                solveText.style.display = 'inline';
+                loadingSpinner.style.display = 'none';
+                solveButton.disabled = false;
+                clearButton.disabled = false; // Re-enable clear button
+                // --- END LOADING STATE ---
+            }
+        };
+
+        solveButton.addEventListener('click', solveMath);
+
+        // Initial setup
+        window.addEventListener('load', initFirebase);
+    </script>
+</body>
+</html>
+
