@@ -7,3 +7,4 @@ This project is built from a single `index.html` file and features:
 * **Custom Animations** including a pen cursor, a "bouncing dots" loader, and a realistic two-pass eraser sweep.
 
 `html` `javascript` `tailwind-css` `ai` `gemini-api` `canvas` `drawing-app` `multimodal` `ed-tech` `handwriting-recognition` `math-solver` `kid-friendly`
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/4d1c3cda-eace-44c0-a2ca-94f0707010a3" />
