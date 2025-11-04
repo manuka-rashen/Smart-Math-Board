@@ -1,2 +1,9 @@
-# Smart-Math-Board
-A magical, kid-friendly math board 🎨. Sketch a math problem (e.g., "2+2"), and an AI (Gemini) solves it and writes the answer right on the canvas!
+This repository contains the code for the **Super Math Board**, a fun, animated web application for kids. Users can draw a math problem on the digital chalkboard, and clicking "Solve It!" sends the drawing to a multimodal AI (Google's Gemini) which recognizes the handwriting, solves the problem, and displays the answer back on the board.
+
+This project is built from a single `index.html` file and features:
+* **HTML5 Canvas** for drawing
+* **Tailwind CSS** for a vibrant, kid-friendly UI
+* **JavaScript** to handle drawing logic, animations, and API calls
+* **Custom Animations** including a pen cursor, a "bouncing dots" loader, and a realistic two-pass eraser sweep.
+
+`html` `javascript` `tailwind-css` `ai` `gemini-api` `canvas` `drawing-app` `multimodal` `ed-tech` `handwriting-recognition` `math-solver` `kid-friendly`
